@@ -1,15 +1,25 @@
 {
   "manifest_version": 3,
   "name": "Crypto Bot Transactions Export",
-  "version": "1.4",
+  "version": "1",
   "description": "Export Crypto Bot (send.tg) transaction history to Raw CSV or Koinly format",
   "permissions": ["activeTab", "scripting", "storage", "sidePanel"],
   "host_permissions": ["https://app.send.tg/*"],
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
   "side_panel": {
     "default_path": "sidepanel.html"
   },
   "action": {
-    "default_title": "Open Send.tg Exporter"
+    "default_title": "Open Crypto Bot Exporter",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png"
+    }
   },
   "background": {
     "service_worker": "background.js"

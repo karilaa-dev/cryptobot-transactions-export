@@ -33,7 +33,8 @@ jobs:
             content.js \
             sidepanel.html \
             sidepanel.js \
-            README.md
+            README.md \
+            icons/
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
