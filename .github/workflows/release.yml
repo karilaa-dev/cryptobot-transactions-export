@@ -1,0 +1,56 @@
+name: Create Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_notes:
+        description: 'Release notes (optional)'
+        required: false
+        default: ''
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Get version from manifest
+        id: version
+        run: |
+          VERSION=$(jq -r '.version' manifest.json)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Extension version: $VERSION"
+
+      - name: Create extension zip
+        run: |
+          zip -r crypto-bot-export-v${{ steps.version.outputs.version }}.zip \
+            manifest.json \
+            background.js \
+            content.js \
+            sidepanel.html \
+            sidepanel.js \
+            README.md
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.version.outputs.version }}
+          name: Release v${{ steps.version.outputs.version }}
+          body: |
+            ## Crypto Bot Transactions Export v${{ steps.version.outputs.version }}
+
+            ${{ github.event.inputs.release_notes || 'Chrome extension for exporting Send.tg transaction history.' }}
+
+            ### Installation
+            1. Download the zip file below
+            2. Extract to a folder
+            3. Open Chrome and go to `chrome://extensions`
+            4. Enable "Developer mode"
+            5. Click "Load unpacked" and select the extracted folder
+          files: crypto-bot-export-v${{ steps.version.outputs.version }}.zip
+          draft: false
+          prerelease: false
