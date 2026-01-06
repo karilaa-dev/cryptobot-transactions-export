@@ -43,7 +43,7 @@ jobs:
           body: |
             ## Crypto Bot Transactions Export v${{ steps.version.outputs.version }}
 
-            ${{ github.event.inputs.release_notes || 'Chrome extension for exporting Send.tg transaction history.' }}
+            ${{ github.event.inputs.release_notes || 'Chrome extension for exporting Crypto Bot transaction history.' }}
 
             ### Installation
             1. Download the zip file below
