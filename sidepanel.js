@@ -164,7 +164,7 @@ async function exportAll(format = 'koinly') {
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
-    if (!tab.url.includes('app.send.tg')) {
+    if (!tab.url || !tab.url.includes('app.send.tg')) {
       setStatus('Please navigate to app.send.tg/transactions first', 'warning');
       log('Error: Not on app.send.tg', 'error');
       setButtons(true);
