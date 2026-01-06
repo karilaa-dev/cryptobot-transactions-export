@@ -1,3 +1,6 @@
+// Stop export flag
+let stopRequested = false;
+
 // Asset decimals mapping
 const ASSET_DECIMALS = {
   USDT: 18, TON: 9, BTC: 8, ETH: 18, USDC: 18, NOT: 9, DOGS: 9, LTC: 8,
@@ -114,6 +117,23 @@ function hideProgress() {
 function setButtons(enabled) {
   document.getElementById('exportRawBtn').disabled = !enabled;
   document.getElementById('exportKoinlyBtn').disabled = !enabled;
+  document.getElementById('stopBtn').style.display = enabled ? 'none' : 'block';
+}
+
+function showStopButton(show) {
+  document.getElementById('stopBtn').style.display = show ? 'block' : 'none';
+}
+
+function toggleInstructions() {
+  const instructions = document.getElementById('instructions');
+  const btn = document.getElementById('instructionsBtn');
+  if (instructions.style.display === 'block') {
+    instructions.style.display = 'none';
+    btn.textContent = 'How to Use';
+  } else {
+    instructions.style.display = 'block';
+    btn.textContent = 'Hide Instructions';
+  }
 }
 
 function log(message, type = 'info') {
@@ -134,6 +154,7 @@ function clearLog() {
 
 // Full Export - scrolls through page, then fetches details for each transaction
 async function exportAll(format = 'koinly') {
+  stopRequested = false;
   setButtons(false);
   clearLog();
   setStatus('Phase 1: Scrolling to load all transactions...', 'info');
@@ -168,12 +189,16 @@ async function exportAll(format = 'koinly') {
       func: async () => {
         const transactions = new Map();
         let lastHeight = 0;
-        let attempts = 0;
-        const maxAttempts = 100;
+        let noChangeAttempts = 0;
+        let lastTxCount = 0;
+        let txCountStableAttempts = 0;
+        const maxScrollAttempts = 200;
+        const scrollWaitMs = 500;
+        const noChangeThreshold = 8;  // More patient before giving up
+        const txStableThreshold = 5;  // Tx count must be stable for 5 checks
 
-        while (attempts < maxAttempts) {
+        const collectTransactions = () => {
           const items = document.querySelectorAll('a[href*="/transactions/"]');
-
           items.forEach(item => {
             try {
               const href = item.getAttribute('href') || '';
@@ -211,19 +236,73 @@ async function exportAll(format = 'koinly') {
               transactions.set(id, { id, txType, type, dateStr, timeStr, amounts, href });
             } catch (e) {}
           });
+        };
 
-          window.scrollTo(0, document.body.scrollHeight);
-          await new Promise(resolve => setTimeout(resolve, 300));
+        // Initial collection
+        collectTransactions();
+
+        // Scroll incrementally by viewport height to ensure lazy-loading triggers
+        const viewportHeight = window.innerHeight;
+        let currentScrollPos = 0;
+
+        for (let i = 0; i < maxScrollAttempts; i++) {
+          // Scroll incrementally - this triggers lazy loading better than jumping to bottom
+          currentScrollPos += viewportHeight * 0.8;
+          window.scrollTo(0, currentScrollPos);
+          await new Promise(resolve => setTimeout(resolve, scrollWaitMs));
+
+          // Also scroll to absolute bottom to trigger any remaining loads
+          const maxScroll = document.body.scrollHeight;
+          if (currentScrollPos >= maxScroll) {
+            window.scrollTo(0, maxScroll);
+            await new Promise(resolve => setTimeout(resolve, 300));
+          }
+
+          // Collect any new transactions
+          collectTransactions();
 
           const newHeight = document.body.scrollHeight;
+          const currentTxCount = transactions.size;
+
+          // Check if height changed
           if (newHeight === lastHeight) {
-            attempts++;
-            if (attempts > 3) break;
+            noChangeAttempts++;
           } else {
-            attempts = 0;
+            noChangeAttempts = 0;
             lastHeight = newHeight;
+            // Reset scroll position tracking when page grows
+            if (currentScrollPos >= newHeight) {
+              currentScrollPos = window.scrollY;
+            }
+          }
+
+          // Check if transaction count stabilized
+          if (currentTxCount === lastTxCount) {
+            txCountStableAttempts++;
+          } else {
+            txCountStableAttempts = 0;
+            lastTxCount = currentTxCount;
+          }
+
+          // Stop only when BOTH height is stable AND tx count is stable
+          if (noChangeAttempts >= noChangeThreshold && txCountStableAttempts >= txStableThreshold) {
+            break;
           }
         }
+
+        // Final aggressive scroll - scroll through entire page again to catch any missed items
+        window.scrollTo(0, 0);
+        await new Promise(resolve => setTimeout(resolve, 300));
+        const finalMaxScroll = document.body.scrollHeight;
+        for (let pos = 0; pos <= finalMaxScroll; pos += viewportHeight * 0.5) {
+          window.scrollTo(0, pos);
+          await new Promise(resolve => setTimeout(resolve, 400));
+          collectTransactions();
+        }
+        // One final jump to absolute bottom
+        window.scrollTo(0, document.body.scrollHeight);
+        await new Promise(resolve => setTimeout(resolve, 500));
+        collectTransactions();
 
         window.scrollTo(0, 0);
         return Array.from(transactions.values());
@@ -253,6 +332,14 @@ async function exportAll(format = 'koinly') {
     log(`Fetching details for ${txsNeedingDetails.length} withdrawal/deposit transactions...`);
 
     for (let i = 0; i < txsNeedingDetails.length; i++) {
+      if (stopRequested) {
+        log('Export stopped by user', 'error');
+        setStatus('Export stopped', 'warning');
+        hideProgress();
+        setButtons(true);
+        return;
+      }
+
       const tx = txsNeedingDetails[i];
       setProgress(i + 1, txsNeedingDetails.length, 'Fetching details');
 
@@ -503,3 +590,8 @@ async function exportAll(format = 'koinly') {
 
 document.getElementById('exportRawBtn').addEventListener('click', () => exportAll('raw'));
 document.getElementById('exportKoinlyBtn').addEventListener('click', () => exportAll('koinly'));
+document.getElementById('stopBtn').addEventListener('click', () => {
+  stopRequested = true;
+  log('Stop requested...', 'warning');
+});
+document.getElementById('instructionsBtn').addEventListener('click', toggleInstructions);
