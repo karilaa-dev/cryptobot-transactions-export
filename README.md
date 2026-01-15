@@ -26,8 +26,7 @@ A Chrome extension to export your [Crypto Bot](https://t.me/CryptoBot) (send.tg)
 
 ### From Chrome Web Store
 
-<!-- TODO: Add Chrome Web Store link when published -->
-*Coming soon*
+[Install from Chrome Web Store](https://chromewebstore.google.com/detail/crypto-bot-transactions-e/kahljmkedinolihlokmmohdgbajhhlgb)
 
 ### Manual Installation (Developer Mode)
 
